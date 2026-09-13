@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import Markdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { Message } from "../types";
 import { AskGPTEmblem } from "./AskGPTIcon";
 import {
@@ -162,7 +164,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         <div className="text-sm sm:text-base leading-relaxed text-gray-800 dark:text-gray-200 break-words">
           <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none space-y-2 prose-p:leading-relaxed prose-pre:bg-gray-950 prose-pre:text-gray-100 prose-pre:border prose-pre:border-gray-800 prose-pre:rounded-xl">
             <Markdown
-              components={{
+  remarkPlugins={[remarkMath]}
+  rehypePlugins={[rehypeKatex]}
+  components={{
                 pre({ children }) {
                   return (
                     <div className="my-2.5 overflow-hidden rounded-xl border border-gray-200 bg-gray-950 text-gray-100 dark:border-gray-800 shadow-xs">

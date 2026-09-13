@@ -12,7 +12,7 @@ export function createSpeechRecognition(): any {
   const recognition = new SpeechRecognitionClass();
   recognition.continuous = false;
   recognition.interimResults = true;
-  recognition.lang = "en-US";
+  recognition.lang = "en-IN";
   return recognition;
 }
 
@@ -55,28 +55,79 @@ export function speakText(
   // Cancel any ongoing speech first
   window.speechSynthesis.cancel();
 
-  // Strip markdown code blocks & formatting for cleaner audio narration
-  const cleanText = text
-    .replace(/```[\s\S]*?```/g, " code snippet omitted ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/[*_~#>-]/g, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .trim();
+  // Clean Markdown and mathematical notation for natural speech
+const cleanText = text
+  // Remove code blocks completely
+  .replace(/```[\s\S]*?```/g, " ")
+
+  // Remove inline code formatting
+  .replace(/`([^`]+)`/g, "$1")
+
+  // Convert common math symbols to spoken English
+  .replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "$1 divided by $2")
+  .replace(/\\sqrt\s*\{([^{}]*)\}/g, "square root of $1")
+  .replace(/\\int/g, "integral")
+  .replace(/\\sum/g, "sum")
+  .replace(/\\infty/g, "infinity")
+  .replace(/\\times/g, "times")
+  .replace(/\\cdot/g, "times")
+  .replace(/\\pm/g, "plus or minus")
+  .replace(/\\leq/g, "less than or equal to")
+  .replace(/\\geq/g, "greater than or equal to")
+  .replace(/\\neq/g, "not equal to")
+
+  // Remove LaTeX commands that may remain
+  .replace(/\\[a-zA-Z]+/g, " ")
+
+  // Remove LaTeX braces
+  .replace(/[{}]/g, " ")
+
+  // Remove dollar signs used for math delimiters
+  .replace(/\$\$/g, " ")
+  .replace(/\$/g, " ")
+
+  // Remove Markdown formatting
+  .replace(/[*_~#>-]/g, " ")
+
+  // Convert Markdown links to their visible text
+  .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+
+  // Clean extra spaces
+  .replace(/\s+/g, " ")
+  .trim();
 
   if (!cleanText) return null;
 
   const utterance = new SpeechSynthesisUtterance(cleanText);
-  utterance.rate = options?.rate || 1.0;
-  utterance.pitch = 1.0;
 
-  if (options?.voiceName) {
-    const voices = window.speechSynthesis.getVoices();
-    const chosenVoice = voices.find((v) => v.name === options.voiceName);
-    if (chosenVoice) {
-      utterance.voice = chosenVoice;
-    }
+// Indian English
+utterance.lang = "en-IN";
+
+// Natural and clear speaking speed
+utterance.rate = options?.rate || 0.9;
+utterance.pitch = 1.0;
+
+ const voices = window.speechSynthesis.getVoices();
+
+if (options?.voiceName) {
+  const chosenVoice = voices.find(
+    (v) => v.name === options.voiceName
+  );
+
+  if (chosenVoice) {
+    utterance.voice = chosenVoice;
+    utterance.lang = chosenVoice.lang;
   }
+} else {
+  const indianVoice = voices.find(
+    (v) => v.lang.toLowerCase() === "en-in"
+  );
 
+  if (indianVoice) {
+    utterance.voice = indianVoice;
+    utterance.lang = "en-IN";
+  }
+}
   if (options?.onStart) utterance.onstart = options.onStart;
   if (options?.onEnd) utterance.onend = options.onEnd;
   if (options?.onError) utterance.onerror = options.onError;
