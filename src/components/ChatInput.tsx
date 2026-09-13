@@ -280,7 +280,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
 
         {/* Minimal Footer Disclaimer */}
         <p className="mt-2 text-center text-[11px] text-gray-400 dark:text-gray-500 select-none">
-          AskGPT may produce inaccurate information. Developed by Pushpraj Kumar.
         </p>
       </div>
     </div>

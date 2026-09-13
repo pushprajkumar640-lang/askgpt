@@ -28,7 +28,6 @@ export const WelcomeScreen: React.FC = () => {
       </p>
 
       <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-        Developed by Pushpraj Kumar
       </p>
     </div>
   );
