@@ -279,18 +279,9 @@ CORE BEHAVIORAL DIRECTIVES:
 6. REAL-TIME DATE & TIME ACCURACY:
    - When asked for the current date, today's date, current day, or current time (e.g., "Aaj ki date kya hai?", "What is today's date?", "What day is today?", "Abhi kitne baje hain?", "What time is it?", "Current date and time?"), ALWAYS state the exact live date/time from the REAL-TIME TEMPORAL CONTEXT above in Asia/Kolkata (IST).
 
-// 7. CURRENT & LATEST INFORMATION (Google Search Grounding):
-//    - For questions about current events, today, recent happenings, now, latest releases, 2026 developments, current office holders, current sports scores, current prices, or recent technology/AI announcements: Use Google Search grounding to retrieve and synthesize up-to-date facts.
-//    - Clearly cite facts from reputable, authoritative sources.
-7. INTELLIGENT WEB SEARCH & FACTUAL ACCURACY:
-   - You have access to Google Search grounding.
-   - Decide intelligently from the user's question whether web search is needed.
-   - Use web search whenever information may be current, changing, recent, time-sensitive, uncertain, niche, or difficult to verify.
-   - This includes current or past sports results, winners, tournaments, events, news, current office holders, prices, products, technology releases, AI models, rankings, statistics, schedules, and similar information.
-   - Do not rely on keyword matching to decide whether to search.
-   - For stable general knowledge, programming, mathematics, explanations, and writing, answer directly without unnecessary searching.
-   - Never guess or invent factual information.
-   - When web search is used, provide relevant clickable source links when available.
+7. CURRENT & LATEST INFORMATION (Google Search Grounding):
+   - For questions about current events, today, recent happenings, now, latest releases, 2026 developments, current office holders, current sports scores, current prices, or recent technology/AI announcements: Use Google Search grounding to retrieve and synthesize up-to-date facts.
+   - Clearly cite facts from reputable, authoritative sources.
 
 8. HISTORICAL QUESTIONS & COMPARISONS:
    - When asked about a specific past year or era (e.g., 2020, 2021, 2022, 2023, 2024, or 'X years ago'): Answer specifically and accurately for that historical period without conflating it with current information.
@@ -379,61 +370,61 @@ CORE BEHAVIORAL DIRECTIVES:
     let response: any = null;
     let lastError: any = null;
 
-    // Check if query needs live Google Search grounding
-    // const promptLower = (prompt || "").toLowerCase();
-    // const isTemporalOrSearchQuery =
-    //   promptLower.includes("today") ||
-    //   promptLower.includes("current") ||
-    //   promptLower.includes("latest") ||
-    //   promptLower.includes("recent") ||
-    //   promptLower.includes("news") ||
-    //   promptLower.includes("now") ||
-    //   promptLower.includes("abhi") ||
-    //   promptLower.includes("aaj") ||
-    //   promptLower.includes("weather") ||
-    //   promptLower.includes("score") ||
-    //   promptLower.includes("price") ||
-    //   promptLower.includes("2026") ||
-    //   promptLower.includes("who is the current") ||
-    //   promptLower.includes("who is the prime minister");
+    //Check if query needs live Google Search grounding
+    const promptLower = (prompt || "").toLowerCase();
+    const isTemporalOrSearchQuery =
+      promptLower.includes("today") ||
+      promptLower.includes("current") ||
+      promptLower.includes("latest") ||
+      promptLower.includes("recent") ||
+      promptLower.includes("news") ||
+      promptLower.includes("now") ||
+      promptLower.includes("abhi") ||
+      promptLower.includes("aaj") ||
+      promptLower.includes("weather") ||
+      promptLower.includes("score") ||
+      promptLower.includes("price") ||
+      promptLower.includes("2026") ||
+      promptLower.includes("who is the current") ||
+      promptLower.includes("who is the prime minister");
 
-    // Phase 1: If question warrants live web search and not in quota cooldown, attempt Google Search grounding
-    // const canAttemptSearch =
-    //   isTemporalOrSearchQuery &&
-    //   Date.now() - lastSearchGroundingQuotaErrorAt > SEARCH_COOLDOWN_MS;
+    //Phase 1: If question warrants live web search and not in quota cooldown, attempt Google Search grounding
+    const canAttemptSearch =
+      isTemporalOrSearchQuery &&
+      Date.now() - lastSearchGroundingQuotaErrorAt > SEARCH_COOLDOWN_MS;
 
-    // if (canAttemptSearch) {
-    //   for (const searchModel of ["gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash"]) {
-    //     try {
-    //       response = await ai.models.generateContent({
-    //         model: searchModel,
-    //         contents,
-    //         config: {
-    //           systemInstruction,
-    //           temperature: 0.7,
-    //           tools: [{ googleSearch: {} }],
-    //         },
-    //       });
-    //       const hasText = Boolean(
-    //         response?.text ||
-    //         response?.candidates?.[0]?.content?.parts?.some((p: any) => Boolean(p.text))
-    //       );
-    //       if (hasText) break;
-    //     } catch (searchErr: any) {
-    //       lastError = searchErr;
-    //       const errMsg = String(searchErr?.message || "");
-    //       if (
-    //         searchErr?.status === 429 ||
-    //         errMsg.includes("429") ||
-    //         errMsg.includes("quota") ||
-    //         errMsg.includes("RESOURCE_EXHAUSTED")
-    //       ) {
-    //         lastSearchGroundingQuotaErrorAt = Date.now();
-    //         break; // Stop retrying search on quota limit, seamlessly fall through to standard generation
-    //       }
-    //     }
-    //   }
-    // }
+    if (canAttemptSearch) {
+      for (const searchModel of ["gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash"]) {
+        try {
+          response = await ai.models.generateContent({
+            model: searchModel,
+            contents,
+            config: {
+              systemInstruction,
+              temperature: 0.7,
+              tools: [{ googleSearch: {} }],
+            },
+          });
+          const hasText = Boolean(
+            response?.text ||
+            response?.candidates?.[0]?.content?.parts?.some((p: any) => Boolean(p.text))
+          );
+          if (hasText) break;
+        } catch (searchErr: any) {
+          lastError = searchErr;
+          const errMsg = String(searchErr?.message || "");
+          if (
+            searchErr?.status === 429 ||
+            errMsg.includes("429") ||
+            errMsg.includes("quota") ||
+            errMsg.includes("RESOURCE_EXHAUSTED")
+          ) {
+            lastSearchGroundingQuotaErrorAt = Date.now();
+            break; // Stop retrying search on quota limit, seamlessly fall through to standard generation
+          }
+        }
+      }
+    }
 
     // Phase 2: Standard generation with resilient multi-model fallback
     if (!response) {
@@ -442,15 +433,11 @@ CORE BEHAVIORAL DIRECTIVES:
           response = await ai.models.generateContent({
             model,
             contents,
-            // config: {
-            //   systemInstruction,
-            //   temperature: 0.7,
-            // },
             config: {
-  systemInstruction,
-  temperature: 0.3,
-  tools: [{ googleSearch: {} }],
-},
+              systemInstruction,
+              temperature: 0.7,
+            },
+            
           });
           const hasText = Boolean(
             response?.text ||
