@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Paperclip, Mic, MicOff, Send, X, Loader2, Image as ImageIcon } from "lucide-react";
+import { Plus, Mic, MicOff, Send, X, Loader2, Image as ImageIcon } from "lucide-react";
 import { Attachment } from "../types";
 import { createSpeechRecognition, isSpeechRecognitionSupported } from "../lib/speech";
 
@@ -220,10 +220,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-            title="Attach image or file"
-            aria-label="Attach file"
+            title="Add photo or file"
+            aria-label="Add photo or file"
           >
-            <Paperclip className="h-4 w-4" />
+            <Plus className="h-5 w-5" />
           </button>
 
           {/* Auto-Expanding Textarea */}
