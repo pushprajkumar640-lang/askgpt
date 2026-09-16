@@ -532,7 +532,75 @@ CORE BEHAVIORAL DIRECTIVES:
         contents.push({ role: "user", parts: currentParts });
       }
     }
+    // SearXNG web search for fresh information
+    let webSearchContext = "";
 
+    if (prompt && process.env.SEARXNG_URL) {
+      try {
+        const searxngUrl = process.env.SEARXNG_URL.replace(/\/+$/, "");
+
+        const searchUrl =
+          `${searxngUrl}/search?q=${encodeURIComponent(prompt)}` +
+          `&format=json&language=en&categories=general`;
+
+        const searchResponse = await fetch(searchUrl, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "AskGPT/1.0",
+          },
+        });
+
+        if (searchResponse.ok) {
+          const searchData: any = await searchResponse.json();
+
+          const results = Array.isArray(searchData?.results)
+            ? searchData.results.slice(0, 8)
+            : [];
+
+          if (results.length > 0) {
+            webSearchContext = results
+              .map(
+                (result: any, index: number) =>
+                  `[${index + 1}] ${result.title || "Untitled"}\n` +
+                  `URL: ${result.url || ""}\n` +
+                  `Content: ${result.content || ""}`
+              )
+              .join("\n\n");
+
+            console.log(`SearXNG returned ${results.length} results.`);
+          }
+        } else {
+          console.warn(
+            "SearXNG search failed:",
+            searchResponse.status,
+            searchResponse.statusText
+          );
+        }
+      } catch (searchError: any) {
+        console.warn(
+          "SearXNG search error:",
+          searchError?.message || searchError
+        );
+      }
+    }
+
+    // Give fresh web results to Gemini when available.
+    if (webSearchContext) {
+      contents.push({
+        role: "user",
+        parts: [
+          {
+            text:
+              `LIVE WEB SEARCH RESULTS FROM SEARXNG:\n\n${webSearchContext}\n\n` +
+              `Use these results when they are relevant to the user's question. ` +
+              `For current, latest, recent, today's, or "last" questions, ` +
+              `prefer the information in these live results over older model knowledge. ` +
+              `Do not invent facts that are not supported by the available results.`,
+          },
+        ],
+      });
+    }
     // Candidate model list prioritizing active, high-quota, fast Gemini models
     const candidateModels = [
       "gemini-3.1-flash-lite-preview",
