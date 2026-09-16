@@ -285,7 +285,7 @@ CORE BEHAVIORAL DIRECTIVES:
    - NEVER guess a current or recent sports result.
    - If reliable web verification is unavailable, clearly say that the result could not be verified instead of inventing an answer.
    - When web search is used, base the answer on the retrieved sources and provide source links.
-   
+
 8. HISTORICAL QUESTIONS & COMPARISONS:
    - When asked about a specific past year or era (e.g., 2020, 2021, 2022, 2023, 2024, or 'X years ago'): Answer specifically and accurately for that historical period without conflating it with current information.
    - When asked to compare past and present (e.g., "2022 vs 2026", "2022 me kya tha aur 2026 me kya hai?", "3 saal pehle aur abhi me kya difference hai?"): Structure a clear, structured comparison covering historical context, current state, key milestones, and notable differences.
@@ -373,89 +373,51 @@ CORE BEHAVIORAL DIRECTIVES:
     let response: any = null;
     let lastError: any = null;
 
-    //Check if query needs live Google Search grounding
-    const promptLower = (prompt || "").toLowerCase();
-    const isTemporalOrSearchQuery =
-      promptLower.includes("today") ||
-      promptLower.includes("current") ||
-      promptLower.includes("latest") ||
-      promptLower.includes("recent") ||
-      promptLower.includes("news") ||
-      promptLower.includes("now") ||
-      promptLower.includes("abhi") ||
-      promptLower.includes("aaj") ||
-      promptLower.includes("weather") ||
-      promptLower.includes("score") ||
-      promptLower.includes("price") ||
-      promptLower.includes("2026") ||
-      promptLower.includes("who is the current") ||
-      promptLower.includes("who is the prime minister");
+    // Gemini intelligently decides whether live Google Search is needed.
+// No hardcoded keyword list is used.
+for (const model of candidateModels) {
+  try {
+    response = await ai.models.generateContent({
+      model,
+      contents,
+      config: {
+        systemInstruction,
+        temperature: 0.7,
+        tools: [{ googleSearch: {} }],
+      },
+    });
 
-    //Phase 1: If question warrants live web search and not in quota cooldown, attempt Google Search grounding
-    const canAttemptSearch =
-      isTemporalOrSearchQuery &&
-      Date.now() - lastSearchGroundingQuotaErrorAt > SEARCH_COOLDOWN_MS;
+    const hasText = Boolean(
+      response?.text ||
+      response?.candidates?.[0]?.content?.parts?.some(
+        (p: any) => Boolean(p.text)
+      )
+    );
 
-    if (canAttemptSearch) {
-      for (const searchModel of ["gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash"]) {
-        try {
-          response = await ai.models.generateContent({
-            model: searchModel,
-            contents,
-            config: {
-              systemInstruction,
-              temperature: 0.7,
-              tools: [{ googleSearch: {} }],
-            },
-          });
-          const hasText = Boolean(
-            response?.text ||
-            response?.candidates?.[0]?.content?.parts?.some((p: any) => Boolean(p.text))
-          );
-          if (hasText) break;
-        } catch (searchErr: any) {
-          lastError = searchErr;
-          const errMsg = String(searchErr?.message || "");
-          if (
-            searchErr?.status === 429 ||
-            errMsg.includes("429") ||
-            errMsg.includes("quota") ||
-            errMsg.includes("RESOURCE_EXHAUSTED")
-          ) {
-            lastSearchGroundingQuotaErrorAt = Date.now();
-            break; // Stop retrying search on quota limit, seamlessly fall through to standard generation
-          }
-        }
-      }
+    if (hasText) break;
+
+  } catch (genErr: any) {
+    lastError = genErr;
+
+    const errMsg = String(genErr?.message || "");
+
+    if (
+      genErr?.status === 429 ||
+      errMsg.includes("429") ||
+      errMsg.includes("quota") ||
+      errMsg.includes("RESOURCE_EXHAUSTED")
+    ) {
+      lastSearchGroundingQuotaErrorAt = Date.now();
+      break;
     }
+  }
+}
 
-    // Phase 2: Standard generation with resilient multi-model fallback
-    if (!response) {
-      for (const model of candidateModels) {
-        try {
-          response = await ai.models.generateContent({
-            model,
-            contents,
-            config: {
-              systemInstruction,
-              temperature: 0.7,
-            },
-            
-          });
-          const hasText = Boolean(
-            response?.text ||
-            response?.candidates?.[0]?.content?.parts?.some((p: any) => Boolean(p.text))
-          );
-          if (hasText) break;
-        } catch (genErr: any) {
-          lastError = genErr;
-        }
-      }
-    }
-
-    if (!response) {
-      throw lastError || new Error("Unable to generate response from AskGPT models at this moment.");
-    }
+if (!response) {
+  throw lastError || new Error(
+    "Unable to generate response from AskGPT models at this moment."
+  );
+}
 
     let replyText = "";
     try {
