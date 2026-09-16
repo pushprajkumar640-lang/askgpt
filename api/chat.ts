@@ -373,8 +373,9 @@ CORE BEHAVIORAL DIRECTIVES:
     let response: any = null;
     let lastError: any = null;
 
-    // Gemini intelligently decides whether live Google Search is needed.
-// No hardcoded keyword list is used.
+   // Ask Gemini to answer normally.
+// Google Search is enabled only when the model determines that
+// live/current information is required.
 for (const model of candidateModels) {
   try {
     response = await ai.models.generateContent({
@@ -394,28 +395,33 @@ for (const model of candidateModels) {
       )
     );
 
-    if (hasText) break;
-
+    if (hasText) {
+      break;
+    }
   } catch (genErr: any) {
     lastError = genErr;
 
-    const errMsg = String(genErr?.message || "");
+    const errMsg = String(genErr?.message || "").toLowerCase();
 
     if (
       genErr?.status === 429 ||
       errMsg.includes("429") ||
-      errMsg.includes("quota") ||
-      errMsg.includes("RESOURCE_EXHAUSTED")
+      errMsg.includes("resource_exhausted") ||
+      errMsg.includes("rate limit") ||
+      errMsg.includes("quota")
     ) {
-      lastSearchGroundingQuotaErrorAt = Date.now();
-      break;
+      console.warn("Gemini API rate limit reached:", errMsg);
+
+      // Try the next available Gemini model instead of immediately
+      // stopping the entire request.
+      continue;
     }
   }
 }
 
 if (!response) {
   throw lastError || new Error(
-    "Unable to generate response from AskGPT models at this moment."
+    "AskGPT is temporarily unavailable because the Gemini API rate limit has been reached. Please try again later."
   );
 }
 
