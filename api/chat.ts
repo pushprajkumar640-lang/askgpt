@@ -32,6 +32,57 @@ function isMimeTypeSupported(mimeType?: string): boolean {
   );
 }
 
+/**
+ * Search the live web through a SearXNG instance.
+ * SearXNG is used as the live-search layer; Gemini only synthesizes
+ * the answer from the returned results.
+ */
+async function searchSearXNG(query: string): Promise<Array<{ title: string; url: string; content: string }>> {
+  const baseUrl = process.env.SEARXNG_URL?.trim();
+  if (!baseUrl || !query.trim()) return [];
+
+  try {
+    const url = new URL("/search", baseUrl);
+    url.searchParams.set("q", query.trim());
+    url.searchParams.set("format", "json");
+    url.searchParams.set("language", "en");
+    url.searchParams.set("safesearch", "1");
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const searchResponse = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "AskGPT/1.0",
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!searchResponse.ok) {
+      console.warn("SearXNG search failed:", searchResponse.status, searchResponse.statusText);
+      return [];
+    }
+
+    const data = await searchResponse.json();
+
+    return (Array.isArray(data?.results) ? data.results : [])
+      .slice(0, 8)
+      .map((result: any) => ({
+        title: String(result?.title || "").trim(),
+        url: String(result?.url || "").trim(),
+        content: String(result?.content || result?.snippet || "").trim(),
+      }))
+      .filter((result: any) => result.title && result.url);
+  } catch (error: any) {
+    console.warn("SearXNG live search error:", error?.message || error);
+    return [];
+  }
+}
+
 function formatGeminiError(error: any): { statusCode: number; userMessage: string } {
   const errStr = String(error?.message || error?.statusText || error || "").toLowerCase();
   const status = Number(error?.status || error?.statusCode || error?.response?.status || 0);
@@ -91,9 +142,8 @@ function formatGeminiError(error: any): { statusCode: number; userMessage: strin
   };
 }
 
-// Track search grounding rate-limiting to avoid redundant 429 calls
-let lastSearchGroundingQuotaErrorAt = 0;
-const SEARCH_COOLDOWN_MS = 60 * 1000; // 60 seconds
+// SearXNG is the live-search layer. Its URL is configured server-side
+// through SEARXNG_URL in Vercel Environment Variables.
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -494,56 +544,89 @@ CORE BEHAVIORAL DIRECTIVES:
       "gemini-flash-lite-latest",
     ];
 
+    /*
+     * LIVE WEB SEARCH
+     *
+     * We intentionally do not use a hardcoded list of words such as
+     * "latest", "FIFA", "BGT", etc. SearXNG receives the user's actual
+     * question and returns current web results. Gemini is then instructed
+     * to use those results whenever they are relevant.
+     *
+     * Set SEARXNG_URL in Vercel Environment Variables.
+     */
+    const liveSearchResults = await searchSearXNG(trimmedPrompt || prompt);
+
+    let searchContext = "";
+    if (liveSearchResults.length > 0) {
+      searchContext = `
+
+LIVE WEB SEARCH RESULTS (retrieved just now):
+${liveSearchResults
+  .map(
+    (result, index) =>
+      `[${index + 1}] ${result.title}
+URL: ${result.url}
+Snippet: ${result.content}`
+  )
+  .join("\n\n")}
+
+IMPORTANT:
+- Use these live search results for current, recent, changing, or time-sensitive questions.
+- For "last", "latest", "current", "recent", "today", or similar questions, determine the newest relevant event/fact from these results.
+- Do not replace a verified newer result with older model knowledge.
+- If the search results conflict, prefer the newer and more authoritative source.
+- If the user asks a historical question with a specific year/date, answer that historical period.
+- Do not claim that you browsed the web unless these results are actually used.
+`;
+    }
+
+    const finalSystemInstruction = `${systemInstruction}${searchContext}`;
+
     let response: any = null;
     let lastError: any = null;
 
-   // Normal Gemini generation
-// Google Search is temporarily disabled here to avoid
-// consuming Search/grounding quota on every request.
+    for (const model of candidateModels) {
+      try {
+        response = await ai.models.generateContent({
+          model,
+          contents,
+          config: {
+            systemInstruction: finalSystemInstruction,
+            temperature: 0.7,
+          },
+        });
 
-for (const model of candidateModels) {
-  try {
-    response = await ai.models.generateContent({
-      model,
-      contents,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      },
-    });
+        const hasText = Boolean(
+          response?.text ||
+          response?.candidates?.[0]?.content?.parts?.some(
+            (p: any) => Boolean(p.text)
+          )
+        );
 
-    const hasText = Boolean(
-      response?.text ||
-      response?.candidates?.[0]?.content?.parts?.some(
-        (p: any) => Boolean(p.text)
-      )
-    );
+        if (hasText) break;
+      } catch (genErr: any) {
+        lastError = genErr;
 
-    if (hasText) break;
+        const errMsg = String(genErr?.message || "").toLowerCase();
 
-  } catch (genErr: any) {
-    lastError = genErr;
-
-    const errMsg = String(genErr?.message || "").toLowerCase();
-
-    if (
-      genErr?.status === 429 ||
-      errMsg.includes("429") ||
-      errMsg.includes("resource_exhausted") ||
-      errMsg.includes("rate limit") ||
-      errMsg.includes("quota")
-    ) {
-      console.warn("Gemini API quota/rate limit reached:", errMsg);
-      continue;
+        if (
+          genErr?.status === 429 ||
+          errMsg.includes("429") ||
+          errMsg.includes("resource_exhausted") ||
+          errMsg.includes("rate limit") ||
+          errMsg.includes("quota")
+        ) {
+          console.warn("Gemini API quota/rate limit reached:", errMsg);
+          continue;
+        }
+      }
     }
-  }
-}
 
-if (!response) {
-  throw lastError || new Error(
-    "AskGPT is temporarily unavailable because the Gemini API quota has been reached."
-  );
-}
+    if (!response) {
+      throw lastError || new Error(
+        "AskGPT is temporarily unavailable because the Gemini API quota has been reached."
+      );
+    }
 
     let replyText = "";
     try {
@@ -562,34 +645,20 @@ if (!response) {
       replyText = "I apologize, but I couldn't generate a response.";
     }
 
-    // Extract grounding sources from Google Search metadata
-    const candidate = response.candidates?.[0];
-    const groundingChunks = (candidate?.groundingMetadata as any)?.groundingChunks;
-    const sources: Array<{ title: string; uri: string }> = [];
+    // Build source list from SearXNG live results.
+    const sources: Array<{ title: string; uri: string }> = liveSearchResults
+      .map((result) => ({ title: result.title, uri: result.url }))
+      .filter((source) => Boolean(source.uri));
 
-    if (Array.isArray(groundingChunks) && groundingChunks.length > 0) {
-      const seenUris = new Set<string>();
-      for (const chunk of groundingChunks) {
-        const web = chunk?.web;
-        if (web?.uri && !seenUris.has(web.uri)) {
-          seenUris.add(web.uri);
-          let title = web.title?.trim();
-          if (!title) {
-            try {
-              title = new URL(web.uri).hostname.replace(/^www\./, "");
-            } catch {
-              title = web.uri;
-            }
-          }
-          sources.push({ title, uri: web.uri });
-        }
-      }
+    // If live sources exist and are not already cited in the answer, append them.
+    if (sources.length > 0) {
+      const missingSources = sources
+        .slice(0, 5)
+        .filter((source) => !replyText.includes(source.uri));
 
-      // If sources exist and are not already cited in the markdown body, append a clean Sources list
-      if (sources.length > 0 && !replyText.includes(sources[0].uri)) {
-        const sourcesMarkdown = sources
-          .slice(0, 5)
-          .map((s) => `- [${s.title}](${s.uri})`)
+      if (missingSources.length > 0) {
+        const sourcesMarkdown = missingSources
+          .map((source) => `- [${source.title}](${source.uri})`)
           .join("\n");
         replyText += `\n\n**Sources:**\n${sourcesMarkdown}`;
       }
