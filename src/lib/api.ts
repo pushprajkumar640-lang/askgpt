@@ -150,3 +150,167 @@ export async function checkServerHealth(customUrl?: string): Promise<{ ok: boole
     return { ok: false, message: err?.message || "Could not reach server" };
   }
 }
+
+// ==================== AUTHENTICATION ====================
+
+export async function signIn(
+  email: string,
+  password: string
+) {
+  const baseUrl = getBaseApiUrl();
+
+  const response = await fetch(
+    `${baseUrl}/api/auth/signin`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.error || "Failed to sign in"
+    );
+  }
+
+  localStorage.setItem(
+    "askgpt_token",
+    data.token
+  );
+
+  localStorage.setItem(
+    "askgpt_user",
+    JSON.stringify(data.user)
+  );
+
+  return data;
+}
+
+export async function signUp(
+  name: string,
+  email: string,
+  password: string
+) {
+  const baseUrl = getBaseApiUrl();
+
+  const response = await fetch(
+    `${baseUrl}/api/auth/signup`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.error || "Failed to create account"
+    );
+  }
+
+  return data;
+}
+
+// ==================== DATABASE / CONVERSATIONS ====================
+
+export async function loadConversations(): Promise<any[]> {
+  const baseUrl = getBaseApiUrl();
+
+  const token = localStorage.getItem("askgpt_token");
+
+const response = await fetch(
+  `${baseUrl}/api/conversations`,
+  {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
+
+  if (!response.ok) {
+    throw new Error("Failed to load conversations");
+  }
+
+  return response.json();
+}
+
+export async function saveConversation(
+  conversation: any
+): Promise<any> {
+  const baseUrl = getBaseApiUrl();
+  const token = localStorage.getItem("askgpt_token");
+
+  const response = await fetch(
+    `${baseUrl}/api/conversations`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(conversation),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to save conversation");
+  }
+
+  return response.json();
+}
+
+export async function deleteConversationFromDatabase(
+  id: string
+): Promise<void> {
+  const baseUrl = getBaseApiUrl();
+  const token = localStorage.getItem("askgpt_token");
+
+  const response = await fetch(
+    `${baseUrl}/api/conversations/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to delete conversation");
+  }
+}
+
+export async function clearConversationsFromDatabase(): Promise<void> {
+  const baseUrl = getBaseApiUrl();
+  const token = localStorage.getItem("askgpt_token");
+
+  const response = await fetch(
+    `${baseUrl}/api/conversations`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to clear conversations");
+  }
+}
