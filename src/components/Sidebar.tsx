@@ -18,6 +18,9 @@ import { Conversation } from "../types";
 import { AskGPTEmblem } from "./AskGPTIcon";
 
 interface SidebarProps {
+    user: { name: string; email: string } | null;
+  onOpenAuth: (mode: "signin" | "signup") => void;
+  onLogout: () => void;
   isOpen: boolean;
   onClose: () => void;
   conversations: Conversation[];
@@ -32,6 +35,9 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
+   user,
+  onOpenAuth,
+  onLogout,
   isOpen,
   onClose,
   conversations,
@@ -50,6 +56,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [deleteConfirmConv, setDeleteConfirmConv] = useState<Conversation | null>(null);
   const [shareToast, setShareToast] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileDetailsOpen, setProfileDetailsOpen] = useState(false);
 
   // Close active dropdown menu when clicking anywhere outside
   useEffect(() => {
@@ -483,88 +491,189 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Sidebar Footer: Settings, Theme & User Profile (Fixed at bottom) */}
-        <div className="shrink-0 space-y-2.5 border-t border-gray-200 bg-gray-50/80 p-3 dark:border-gray-800 dark:bg-gray-950/80">
-          {/* Settings Button */}
-          <button
-            id="btn-sidebar-settings"
-            type="button"
-            onClick={() => {
-              onOpenSettings();
-              if (window.innerWidth < 1024) onClose();
-            }}
-            className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200/70 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-          >
-            <Settings className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-            <span>Settings</span>
-          </button>
+        <div className="relative shrink-0 space-y-2.5 border-t border-gray-200 bg-gray-50/80 p-3 dark:border-gray-800 dark:bg-gray-950/80">
 
-          {/* Theme Selector (Light, Dark, System) */}
-          <div className="rounded-xl border border-gray-200/80 bg-gray-200/50 p-1 dark:border-gray-800/80 dark:bg-gray-900/60">
-            <div className="grid grid-cols-3 gap-1 text-[11px] font-medium">
-              <button
-                id="btn-theme-light"
-                type="button"
-                onClick={() => onSelectTheme("light")}
-                className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-all ${
-                  theme === "light"
-                    ? "bg-white text-amber-600 font-semibold shadow-2xs ring-1 ring-black/5 dark:bg-gray-800 dark:text-amber-400"
-                    : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
-                }`}
-                title="Light Mode"
-              >
-                <Sun className="h-3.5 w-3.5 text-amber-500" />
-                <span>Light</span>
-              </button>
+        {/* User / Profile Area */}
+<button
+  type="button"
+  onClick={() => setProfileOpen((prev) => !prev)}
+  className="flex w-full items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white/80 p-2 text-left transition hover:bg-gray-100 dark:border-gray-800/80 dark:bg-gray-900/70 dark:hover:bg-gray-800"
+>
+  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-xs font-bold tracking-wider text-white">
+    {user
+      ? user.name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase()
+      : "PK"}
+  </div>
 
-              <button
-                id="btn-theme-dark"
-                type="button"
-                onClick={() => onSelectTheme("dark")}
-                className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-all ${
-                  theme === "dark"
-                    ? "bg-white text-indigo-600 font-semibold shadow-2xs ring-1 ring-black/5 dark:bg-gray-800 dark:text-indigo-300"
-                    : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
-                }`}
-                title="Dark Mode"
-              >
-                <Moon className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
-                <span>Dark</span>
-              </button>
+  <div className="flex min-w-0 flex-1 flex-col">
+    <span className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
+      {user ? user.name : "Pushpraj Kumar"}
+    </span>
 
-              <button
-                id="btn-theme-system"
-                type="button"
-                onClick={() => onSelectTheme("system")}
-                className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-all ${
-                  theme === "system"
-                    ? "bg-white text-gray-900 font-semibold shadow-2xs ring-1 ring-black/5 dark:bg-gray-800 dark:text-white"
-                    : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
-                }`}
-                title="System Preference"
-              >
-                <Laptop className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                <span>System</span>
-              </button>
-            </div>
+    <span className="truncate text-[10px] text-gray-500 dark:text-gray-400">
+      {user ? user.email : "Sign in to save chats"}
+    </span>
+  </div>
+</button>
+
+{/* Profile Menu */}
+{profileOpen && (
+  <div
+    className="absolute bottom-20 left-3 right-3 z-[100] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900"
+    onClick={(e) => e.stopPropagation()}
+  >
+    {user ? (
+      <>
+        {/* Account Header */}
+        <div className="flex items-center gap-3 border-b border-gray-100 px-3.5 py-3 dark:border-gray-800">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-xs font-bold text-white">
+            {user.name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
           </div>
 
-          {/* User / Profile Area */}
-          <div
-            id="sidebar-user-profile"
-            className="flex items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white/80 p-2 dark:border-gray-800/80 dark:bg-gray-900/70"
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-xs font-bold tracking-wider text-white shadow-2xs">
-              PK
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
-                Pushpraj Kumar
-              </span>
-              <span className="truncate text-[10px] text-gray-500 dark:text-gray-400">
-                Developed by Pushpraj Kumar
-              </span>
-            </div>
+          <div className="min-w-0">
+            <p className="truncate text-xs font-semibold text-gray-900 dark:text-white">
+              {user.name}
+            </p>
+
+            <p className="truncate text-[10px] text-gray-500 dark:text-gray-400">
+              {user.email}
+            </p>
           </div>
+        </div>
+
+        {/* Profile Details */}
+        <button
+          type="button"
+          onClick={() => {
+            setProfileOpen(false);
+            setProfileDetailsOpen(true);
+          }}
+          className="flex w-full items-center gap-3 px-3.5 py-3 text-left text-xs text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          <span className="text-base">👤</span>
+          <span>Profile Details</span>
+        </button>
+
+        {/* Settings */}
+        <button
+          type="button"
+          onClick={() => {
+            setProfileOpen(false);
+            onOpenSettings();
+          }}
+          className="flex w-full items-center gap-3 px-3.5 py-3 text-left text-xs text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          <span className="text-base">⚙️</span>
+          <span>Settings</span>
+        </button>
+
+        <div className="border-t border-gray-100 dark:border-gray-800" />
+
+        {/* Logout */}
+        <button
+          type="button"
+          onClick={() => {
+            setProfileOpen(false);
+            onLogout();
+          }}
+          className="flex w-full items-center gap-3 px-3.5 py-3 text-left text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+        >
+          <span className="text-base">↪</span>
+          <span>Log out</span>
+        </button>
+      </>
+    ) : (
+      <>
+        {/* Sign In */}
+        <button
+          type="button"
+          onClick={() => {
+            setProfileOpen(false);
+            onOpenAuth("signin");
+          }}
+          className="flex w-full items-center gap-3 px-3.5 py-3 text-left text-xs text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          <span className="text-base">↪</span>
+          <span>Sign In</span>
+        </button>
+
+        {/* Sign Up */}
+        <button
+          type="button"
+          onClick={() => {
+            setProfileOpen(false);
+            onOpenAuth("signup");
+          }}
+          className="flex w-full items-center gap-3 px-3.5 py-3 text-left text-xs text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          <span className="text-base">👤</span>
+          <span>Sign Up</span>
+        </button>
+      </>
+    )}
+  </div>
+)}
+
+{/* Profile Details Modal */}
+{profileDetailsOpen && user && (
+  <div
+    className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+    onClick={() => setProfileDetailsOpen(false)}
+  >
+    <div
+      className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-gray-900"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-lg font-bold text-white">
+          {user.name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase()}
+        </div>
+
+        <h2 className="mt-4 text-base font-semibold text-gray-900 dark:text-white">
+          {user.name}
+        </h2>
+
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {user.email}
+        </p>
+      </div>
+
+      <div className="mt-5 rounded-xl bg-gray-50 p-3 dark:bg-gray-800/60">
+        <p className="text-[10px] uppercase tracking-wider text-gray-400">
+          Account
+        </p>
+
+        <p className="mt-1 text-xs text-gray-700 dark:text-gray-300">
+          AskGPT Account
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setProfileDetailsOpen(false)}
+        className="mt-4 w-full rounded-xl bg-gray-100 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+        
         </div>
       </div>
     </aside>

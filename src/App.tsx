@@ -1377,87 +1377,6 @@ setActiveConversationId(targetConvId);
       }
     };
 
-  if (!user) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-xl dark:border-gray-800 dark:bg-gray-900">
-
-          <div className="mb-6 text-center">
-            <AskGPTEmblem size="lg" />
-
-            <h1 className="mt-4 text-2xl font-bold">
-              {authMode === "signin"
-                ? "Welcome Back"
-                : "Create Account"}
-            </h1>
-
-            <p className="mt-2 text-sm text-gray-500">
-              {authMode === "signin"
-                ? "Sign in to continue to AskGPT"
-                : "Create your AskGPT account"}
-            </p>
-          </div>
-
-          {authMode === "signup" && (
-            <input
-              type="text"
-              placeholder="Name"
-              value={authName}
-              onChange={(e) => setAuthName(e.target.value)}
-              className="mb-3 w-full rounded-xl border p-3 outline-none dark:border-gray-700 dark:bg-gray-800"
-            />
-          )}
-
-          <input
-            type="email"
-            placeholder="Email"
-            value={authEmail}
-            onChange={(e) => setAuthEmail(e.target.value)}
-            className="mb-3 w-full rounded-xl border p-3 outline-none dark:border-gray-700 dark:bg-gray-800"
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={authPassword}
-            onChange={(e) => setAuthPassword(e.target.value)}
-            className="mb-4 w-full rounded-xl border p-3 outline-none dark:border-gray-700 dark:bg-gray-800"
-          />
-
-          {authError && (
-            <p className="mb-4 text-sm text-red-500">
-              {authError}
-            </p>
-          )}
-
-          <button
-            onClick={handleAuth}
-            className="w-full rounded-xl bg-indigo-600 p-3 font-semibold text-white hover:bg-indigo-700"
-          >
-            {authMode === "signin" ? "Sign In" : "Sign Up"}
-          </button>
-
-          <button
-            onClick={() => {
-              setAuthMode(
-                authMode === "signin"
-                  ? "signup"
-                  : "signin"
-              );
-              setAuthError("");
-            }}
-            className="mt-4 w-full text-sm text-indigo-600"
-          >
-            {authMode === "signin"
-              ? "Create a new account"
-              : "Already have an account? Sign in"}
-          </button>
-
-        </div>
-      </div>
-    );
-  }
-
   // =====================================================
   // UI
   // =====================================================
@@ -1467,13 +1386,20 @@ setActiveConversationId(targetConvId);
 
       {/* Sidebar */}
       <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() =>
-          setSidebarOpen(false)
-        }
-        conversations={
-          conversations
-        }
+  user={user}
+  onOpenAuth={(mode) => {
+    setAuthMode(mode);
+    setShowAuth(true);
+  }}
+  onLogout={() => {
+    localStorage.removeItem("askgpt_token");
+    localStorage.removeItem("askgpt_user");
+    setUser(null);
+  }}
+   isOpen={sidebarOpen}
+  onClose={() => setSidebarOpen(false)}
+  conversations={conversations}
+       
         activeId={
           activeConversationId
         }
@@ -1619,28 +1545,134 @@ setActiveConversationId(targetConvId);
 
       </div>
 
-      {/* Settings */}
+            {/* Settings */}
       <SettingsModal
-        isOpen={
-          settingsOpen
-        }
+        isOpen={settingsOpen}
         onClose={() =>
           setSettingsOpen(false)
         }
-        settings={
-          settings
-        }
-        onSaveSettings={(
-          newSettings
-        ) =>
-          setSettings(
-            newSettings
-          )
+        settings={settings}
+        onSaveSettings={(newSettings) =>
+          setSettings(newSettings)
         }
         onClearAllChats={
           handleClearAllChats
         }
       />
+
+      {/* Authentication Modal */}
+      {showAuth && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-gray-900">
+
+            <div className="mb-5">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {authMode === "signin"
+                  ? "Welcome back"
+                  : "Create your account"}
+              </h2>
+
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {authMode === "signin"
+                  ? "Sign in to access your saved chats."
+                  : "Create an account to save your chats."}
+              </p>
+            </div>
+
+            {authMode === "signup" && (
+              <input
+                type="text"
+                placeholder="Full name"
+                value={authName}
+                onChange={(e) =>
+                  setAuthName(e.target.value)
+                }
+                className="mb-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              />
+            )}
+
+            <input
+              type="email"
+              placeholder="Email"
+              value={authEmail}
+              onChange={(e) =>
+                setAuthEmail(e.target.value)
+              }
+              className="mb-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            />
+
+            <input
+              type="password"
+              placeholder="Password"
+              value={authPassword}
+              onChange={(e) =>
+                setAuthPassword(e.target.value)
+              }
+              className="mb-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            />
+
+            {authError && (
+              <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/30 dark:text-red-400">
+                {authError}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleAuth}
+              className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            >
+              {authMode === "signin"
+                ? "Sign In"
+                : "Sign Up"}
+            </button>
+
+            <div className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+              {authMode === "signin" ? (
+                <>
+                  Don't have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("signup");
+                      setAuthError("");
+                    }}
+                    className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+                  >
+                    Sign Up
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("signin");
+                      setAuthError("");
+                    }}
+                    className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+                  >
+                    Sign In
+                  </button>
+                </>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowAuth(false);
+                setAuthError("");
+              }}
+              className="mt-3 w-full rounded-xl py-2 text-xs text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+            >
+              Cancel
+            </button>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
