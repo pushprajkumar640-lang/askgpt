@@ -182,6 +182,7 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [guestQuestionCount, setGuestQuestionCount] = useState(0);
 
   const handleAuth = async () => {
     try {
@@ -979,6 +980,13 @@ export default function App() {
       text: string,
       attachment?: Attachment
     ) => {
+
+if (!user && guestQuestionCount >= 2) {
+  setAuthMode("signin");
+  setShowAuth(true);
+  return;
+}
+
       if (
         (!text.trim() && !attachment) ||
         isLoading
@@ -1316,6 +1324,16 @@ export default function App() {
 });
 
 setActiveConversationId(targetConvId);
+
+if (!user && guestQuestionCount < 2) {
+  const newCount = guestQuestionCount + 1;
+  setGuestQuestionCount(newCount);
+
+  if (newCount >= 2) {
+    setAuthMode("signin");
+    setShowAuth(true);
+  }
+}
 
         if (settings.autoSpeak) {
           handleSpeak(

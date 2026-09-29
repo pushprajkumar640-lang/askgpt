@@ -507,12 +507,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           .join("")
           .slice(0, 2)
           .toUpperCase()
-      : "PK"}
+      : "?"}
   </div>
 
   <div className="flex min-w-0 flex-1 flex-col">
     <span className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
-      {user ? user.name : "Pushpraj Kumar"}
+      {user ? user.name : "Login"}
     </span>
 
     <span className="truncate text-[10px] text-gray-500 dark:text-gray-400">
