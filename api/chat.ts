@@ -49,7 +49,7 @@ async function searchSearXNG(query: string): Promise<Array<{ title: string; url:
     url.searchParams.set("safesearch", "1");
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     const searchResponse = await fetch(url.toString(), {
       method: "GET",
@@ -532,75 +532,6 @@ CORE BEHAVIORAL DIRECTIVES:
         contents.push({ role: "user", parts: currentParts });
       }
     }
-    // SearXNG web search for fresh information
-    let webSearchContext = "";
-
-    if (prompt && process.env.SEARXNG_URL) {
-      try {
-        const searxngUrl = process.env.SEARXNG_URL.replace(/\/+$/, "");
-
-        const searchUrl =
-          `${searxngUrl}/search?q=${encodeURIComponent(prompt)}` +
-          `&format=json&language=en&categories=general`;
-
-        const searchResponse = await fetch(searchUrl, {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            "User-Agent": "AskGPT/1.0",
-          },
-        });
-
-        if (searchResponse.ok) {
-          const searchData: any = await searchResponse.json();
-
-          const results = Array.isArray(searchData?.results)
-            ? searchData.results.slice(0, 8)
-            : [];
-
-          if (results.length > 0) {
-            webSearchContext = results
-              .map(
-                (result: any, index: number) =>
-                  `[${index + 1}] ${result.title || "Untitled"}\n` +
-                  `URL: ${result.url || ""}\n` +
-                  `Content: ${result.content || ""}`
-              )
-              .join("\n\n");
-
-            console.log(`SearXNG returned ${results.length} results.`);
-          }
-        } else {
-          console.warn(
-            "SearXNG search failed:",
-            searchResponse.status,
-            searchResponse.statusText
-          );
-        }
-      } catch (searchError: any) {
-        console.warn(
-          "SearXNG search error:",
-          searchError?.message || searchError
-        );
-      }
-    }
-
-    // Give fresh web results to Gemini when available.
-    if (webSearchContext) {
-      contents.push({
-        role: "user",
-        parts: [
-          {
-            text:
-              `LIVE WEB SEARCH RESULTS FROM SEARXNG:\n\n${webSearchContext}\n\n` +
-              `Use these results when they are relevant to the user's question. ` +
-              `For current, latest, recent, today's, or "last" questions, ` +
-              `prefer the information in these live results over older model knowledge. ` +
-              `Do not invent facts that are not supported by the available results.`,
-          },
-        ],
-      });
-    }
     // Candidate model list prioritizing active, high-quota, fast Gemini models
     const candidateModels = [
       "gemini-3.1-flash-lite-preview",
@@ -623,6 +554,8 @@ CORE BEHAVIORAL DIRECTIVES:
      * Set SEARXNG_URL in Vercel Environment Variables.
      */
     const liveSearchResults = await searchSearXNG(trimmedPrompt || prompt);
+    console.log("SEARXNG RESULTS:", liveSearchResults.length);
+console.log("SEARXNG DATA:", liveSearchResults);
 
     let searchContext = "";
     if (liveSearchResults.length > 0) {
@@ -643,6 +576,10 @@ IMPORTANT:
 - For "last", "latest", "current", "recent", "today", or similar questions, determine the newest relevant event/fact from these results.
 - Do not replace a verified newer result with older model knowledge.
 - If the search results conflict, prefer the newer and more authoritative source.
+- ONLY use search results that are directly relevant to the user's exact question.
+- NEVER use a result just because it contains similar words or abbreviations.
+- Ignore irrelevant results from unrelated topics.
+- For sports questions, prioritize official sports sources and results that directly answer the user's question.
 - If the user asks a historical question with a specific year/date, answer that historical period.
 - Do not claim that you browsed the web unless these results are actually used.
 `;
@@ -718,19 +655,19 @@ IMPORTANT:
       .map((result) => ({ title: result.title, uri: result.url }))
       .filter((source) => Boolean(source.uri));
 
-    // If live sources exist and are not already cited in the answer, append them.
-    if (sources.length > 0) {
-      const missingSources = sources
-        .slice(0, 5)
-        .filter((source) => !replyText.includes(source.uri));
+      const shouldShowSources =
+  /\b(latest|current|today|now|recent|news|score|ranking|rankings|price|weather|winner|result|results|schedule|election|announcement|update)\b/i.test(
+    trimmedPrompt
+  );
 
-      if (missingSources.length > 0) {
-        const sourcesMarkdown = missingSources
-          .map((source) => `- [${source.title}](${source.uri})`)
-          .join("\n");
-        replyText += `\n\n**Sources:**\n${sourcesMarkdown}`;
-      }
-    }
+if (shouldShowSources && sources.length > 0) {
+  const sourcesMarkdown = sources
+    .slice(0, 5)
+    .map((source) => `- [${source.title}](${source.uri})`)
+    .join("\n");
+
+  replyText += `\n\n**Sources:**\n${sourcesMarkdown}`;
+}
 
     return res.status(200).json({
       text: replyText,
