@@ -542,14 +542,11 @@ CORE BEHAVIORAL DIRECTIVES:
     }
     // Candidate model list prioritizing active, high-quota, fast Gemini models
     const candidateModels = [
-      "gemini-3.1-flash-lite-preview",
-      "gemini-3.1-flash-lite",
-      "gemini-3.5-flash-lite",
-      "gemini-3.8-flash",
-      "gemini-3.5-flash",
-      "gemini-flash-latest",
-      "gemini-flash-lite-latest",
-    ];
+  "gemini-3.8-flash",
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+];
 
     /*
      * LIVE WEB SEARCH
@@ -598,60 +595,29 @@ IMPORTANT:
 
 const requiresLiveVerification = currentInfoRegex.test(trimmedPrompt);
 
-if (requiresLiveVerification && liveSearchResults.length === 0) {
-  console.warn(
-    "LIVE VERIFICATION BLOCKED: No SearXNG results for time-sensitive question."
-  );
-
-  return res.status(503).json({
-    error:
-      "I couldn't verify the latest information right now because live web search is unavailable. Please try again in a moment.",
-    message:
-      "I couldn't verify the latest information right now because live web search is unavailable. Please try again in a moment.",
-  });
-}
-
 const finalSystemInstruction = `${systemInstruction}${searchContext}`;
 
     let response: any = null;
     let lastError: any = null;
 
-    for (const model of candidateModels) {
-      try {
-        response = await ai.models.generateContent({
-          model,
-          contents,
-          config: {
-            systemInstruction: finalSystemInstruction,
-            temperature: 0.7,
-          },
-        });
+    try {
+  response = await ai.models.generateContent({
+    model: "gemini-3.1-flash-lite",
+    contents,
+    config: {
+      systemInstruction: finalSystemInstruction,
+      temperature: 0.4,
+    },
+  });
+} catch (genErr: any) {
+  lastError = genErr;
 
-        const hasText = Boolean(
-          response?.text ||
-          response?.candidates?.[0]?.content?.parts?.some(
-            (p: any) => Boolean(p.text)
-          )
-        );
-
-        if (hasText) break;
-      } catch (genErr: any) {
-        lastError = genErr;
-
-        const errMsg = String(genErr?.message || "").toLowerCase();
-
-        if (
-          genErr?.status === 429 ||
-          errMsg.includes("429") ||
-          errMsg.includes("resource_exhausted") ||
-          errMsg.includes("rate limit") ||
-          errMsg.includes("quota")
-        ) {
-          console.warn("Gemini API quota/rate limit reached:", errMsg);
-          continue;
-        }
-      }
-    }
+  console.error(
+    "Gemini request failed:",
+    genErr?.status,
+    genErr?.message || genErr
+  );
+}
 
     if (!response) {
       throw lastError || new Error(
