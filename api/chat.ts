@@ -49,7 +49,7 @@ async function searchSearXNG(query: string): Promise<Array<{ title: string; url:
     url.searchParams.set("safesearch", "1");
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     const searchResponse = await fetch(url.toString(), {
       method: "GET",
@@ -63,9 +63,17 @@ async function searchSearXNG(query: string): Promise<Array<{ title: string; url:
     clearTimeout(timeout);
 
     if (!searchResponse.ok) {
-      console.warn("SearXNG search failed:", searchResponse.status, searchResponse.statusText);
-      return [];
-    }
+  const errorBody = await searchResponse.text().catch(() => "");
+
+  console.warn(
+    "SearXNG search failed:",
+    searchResponse.status,
+    searchResponse.statusText,
+    errorBody.slice(0, 500)
+  );
+
+  return [];
+}
 
     const data = await searchResponse.json();
 
@@ -585,7 +593,25 @@ IMPORTANT:
 `;
     }
 
-    const finalSystemInstruction = `${systemInstruction}${searchContext}`;
+    const currentInfoRegex =
+  /\b(current|currently|latest|last|recent|recently|today|today's|now|this year|this month|newest|upcoming|who is the.*(cm|chief minister|prime minister|president|ceo)|who won|winner|score|ranking|rankings|standings|schedule|news|price|weather|election|announcement|update)\b/i;
+
+const requiresLiveVerification = currentInfoRegex.test(trimmedPrompt);
+
+if (requiresLiveVerification && liveSearchResults.length === 0) {
+  console.warn(
+    "LIVE VERIFICATION BLOCKED: No SearXNG results for time-sensitive question."
+  );
+
+  return res.status(503).json({
+    error:
+      "I couldn't verify the latest information right now because live web search is unavailable. Please try again in a moment.",
+    message:
+      "I couldn't verify the latest information right now because live web search is unavailable. Please try again in a moment.",
+  });
+}
+
+const finalSystemInstruction = `${systemInstruction}${searchContext}`;
 
     let response: any = null;
     let lastError: any = null;
